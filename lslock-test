@@ -10,8 +10,13 @@ from sys import exc_info
 NUMFILES = 5 #The number of test files to create.
 testdir = '/tmp/lslock-test/'
 
-if not os.path.isdir(testdir):
-    os.makedirs(testdir) #If test directory does not exist, create it.
+try:
+    if not os.path.isdir(testdir):
+        os.makedirs(testdir) #If test directory does not exist, create it.
+except:
+    print('File by the name of test directory %s exists. Failure.' \
+        % testdir)
+    exit(1)
 
 def gen_filename(size = 6, chars = string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
