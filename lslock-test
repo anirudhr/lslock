@@ -12,8 +12,19 @@ if not os.path.isdir(testdir):
 
 def gen_filename(size = 6, chars = string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
-#got this function from http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
-# It returns a 6-character random filename composed of digits and the uppercase alphabet.
+    #Source:  Stack Overflow (http://goo.gl/d1EXAg)
+    #Returns a 6-character random filename composed of
+    #digits and the uppercase alphabet.
+
+def lockfile(testfile, locktype):
+    if locktype == 1:
+        f = open(testfile, 'r')
+        fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+            #Source: http://effbot.org/librarybook/fcntl.htm
+    elif locktype == 2:
+        f = open(testfile, 'r+')
+        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+    return f, str(os.getpid())
 
 testfilelist = list()
 fdescriptors = list()
@@ -23,16 +34,10 @@ for _ in range(NUMFILES):
     tolock = random.randint(0, 2)
     subprocess.call(['touch', testfile])
     if tolock:
-        testfilelist.append(pid + ' : ' + testfile)
-        #generating the expected output
-        if tolock == 1:
-            f = open(testfile, 'r')
-            fcntl.flock(f.fileno(), fcntl.LOCK_SH)
-            #Source: http://effbot.org/librarybook/fcntl.htm
-        elif tolock == 2:
-            f = open(testfile, 'r+')
-            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        f, pid = lockfile(testfile, tolock)
         fdescriptors.append(f)
+        testfilelist.append(pid + ' : ' + testfile)
+            #generating the expected output
 
 testscript = os.path.dirname(os.path.realpath(__file__)) \
 + '/lslock' #name of script to test
@@ -40,8 +45,8 @@ testoutput = subprocess.check_output( \
     ['python3', testscript, testdir] \
     ).decode('utf-8').splitlines() #run the script and get the output
 testoutputset = {i for i in testoutput}
-#Cost of checking whether an element of testfilelist is in set testoutputset
-#is O(1), hence total cost is O(n) where n = len(testfilelist).
+    #Cost of checking whether an element of testfilelist is in set testoutputset
+    #is O(1), hence total cost is O(n) where n = len(testfilelist).
 diditfail = False
 for line in testfilelist:
     if line not in testoutputset:
