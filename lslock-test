@@ -6,7 +6,7 @@ import subprocess
 import string, random
 import time
 from sys import exc_info
-
+DEVNULL = open('/dev/null', 'w')
 NUMFILES = 5 #The number of test files to create.
 testdir = '/tmp/lslock-test/'
 
@@ -49,11 +49,8 @@ if __name__ == '__main__':
     for _ in range(NUMFILES):
         testfile = testdir + gen_filename()
         tolock = random.randint(0, 2)
-        try:
-            subprocess.check_call(['touch', testfile], stderr=DEVNULL)
-        except:
-            print('Unable to access %s to create files: "%s"' \
-                % (testdir, exc_info()[0]))
+        if subprocess.call(['touch', testfile], stderr=DEVNULL):
+            print('Unable to touch test file %s.' % testfile)
             exit(1)
         if tolock:
             p = Process(target=lockfile, \
@@ -86,6 +83,7 @@ if __name__ == '__main__':
     for p in procs:
         p.join()
 
+DEVNULL.close()
 '''test cases:
 0. File as parameter rather than directory //caught by directory check
 1. Hard link: same inode, no point
