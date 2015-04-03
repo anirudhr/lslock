@@ -5,6 +5,7 @@ from multiprocessing import Process, Pipe, Event
 import subprocess
 import string, random
 import time
+from sys import exc_info
 
 NUMFILES = 5 #The number of test files to create.
 testdir = '/tmp/lslock-test/'
@@ -19,18 +20,21 @@ def gen_filename(size = 6, chars = string.ascii_uppercase + string.digits):
     #digits and the uppercase alphabet.
 
 def lockfile(testfile, locktype, waitevent):
-    if locktype == 1:
-        f = open(testfile, 'r')
-        fcntl.flock(f.fileno(), fcntl.LOCK_SH)
-            #Source: http://effbot.org/librarybook/fcntl.htm
-    elif locktype == 2:
-        f = open(testfile, 'r+')
-        fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-    waitevent.wait()
-        #make the child process wait for test script
-        #to execute and find the locks before exiting
-        #so that locks are kept alive to be found
-    f.close()
+    try:
+        if locktype == 1:
+            f = open(testfile, 'r')
+            fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+                #Source: http://effbot.org/librarybook/fcntl.htm
+        elif locktype == 2:
+            f = open(testfile, 'r+')
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        waitevent.wait()
+            #make the child process wait for test script
+            #to execute and find the locks before exiting
+            #so that locks are kept alive to be found
+        f.close()
+    except:
+        print('Attempt to lock file failed: "%s".' % exc_info()[0])
 
 if __name__ == '__main__':
     masterwaitevent = Event()
@@ -40,7 +44,12 @@ if __name__ == '__main__':
     for _ in range(NUMFILES):
         testfile = testdir + gen_filename()
         tolock = random.randint(0, 2)
-        subprocess.call(['touch', testfile])
+        try:
+            subprocess.check_call(['touch', testfile], stderr=DEVNULL)
+        except:
+            print('Unable to access %s to create files: "%s"' \
+                % (testdir, exc_info()[0]))
+            exit(1)
         if tolock:
             p = Process(target=lockfile, \
                 args=(testfile, tolock, masterwaitevent))
