@@ -17,11 +17,15 @@ def gen_filename(size = 6, chars = string.ascii_uppercase + string.digits):
     return ''.join(random.choice(chars) for _ in range(size))
 
 NUMFILES = 5
-testfilelist = tuple((testdir + gen_filename() , random.randint(0, 2)) for _ in range(NUMFILES))
+testfilelist = list()
 fdescriptors = list()
-for testfile, tolock in testfilelist:
+pid = str(os.getpid())
+for _ in range(NUMFILES):
+    testfile = testdir + gen_filename()
+    tolock = random.randint(0, 2)
     subprocess.call(['touch', testfile])
     if tolock:
+        testfilelist.append(pid + ' : ' + testfile)
         if tolock == 1:
             f = open(testfile, 'r')
             fcntl.flock(f.fileno(), fcntl.LOCK_SH) #Source: http://effbot.org/librarybook/fcntl.htm
@@ -32,10 +36,20 @@ for testfile, tolock in testfilelist:
 
 testscript = os.path.dirname(os.path.realpath(__file__)) + '/lslock' #name of script to test
 testoutput = subprocess.check_output(['python3', testscript, testdir]).decode('utf-8').splitlines() #run the script and get the output
-from pprint import pprint
-pprint(testfilelist)
-print(os.getpid())
-pprint(testoutput)
+testoutputset = {i for i in testoutput} #Cost of checking whether an element of testfilelist is in testoutputset is O(1), hence total cost is O(n) where testfilelist has n elements.
+diditfail = False
+for line in testfilelist:
+    if line not in testoutputset:
+        print('Failed: %s is not in the test output' % line)
+        diditfail = True
+
+if not diditfail:
+    print('Passed')
+
+#from pprint import pprint
+#pprint(testfileset)
+#pprint(testoutput)
+
 
 for f in fdescriptors:
     f.close()
