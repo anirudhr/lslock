@@ -4,15 +4,15 @@ lslock-test:
 * Needs to be in the same directory as lslock.
 * Needs to have rwx permissions to access / create a directory in /tmp and create and modify files within that directory.
 * To run:
-  * 'python3 lslock-test' OR
-  * 'chmod u+x lslock-test; ./lslock-test'.
+  * `python3 lslock-test` OR
+  * `chmod u+x lslock-test; ./lslock-test`.
 
 lslock:
 * To run:
-  * 'python3 lslock DIRECTORY' OR
-  * 'python3 lslock' to run on the pwd OR
-  * 'chmod u+x lslock; ./lslock DIRECTORY' OR
-  * 'chmod u+x lslock; ./lslock' to run on the pwd
+  * `python3 lslock DIRECTORY` OR
+  * `python3 lslock` to run on the pwd OR
+  * `chmod u+x lslock; ./lslock DIRECTORY` OR
+  * `chmod u+x lslock; ./lslock` to run on the pwd
 
 INTRODUCTION
 ===============
