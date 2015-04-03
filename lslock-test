@@ -1,0 +1,50 @@
+#!/usr/bin/python3
+
+import fcntl, os
+import subprocess
+#import time
+import string, random
+
+#DEVNULL = open('/dev/null', 'w')
+
+testdir = '/tmp/lslock-test/'
+
+if not os.path.isdir(testdir):
+    os.makedirs(testdir)
+
+def gen_filename(size = 6, chars = string.ascii_uppercase + string.digits):
+#got this function from http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
+    return ''.join(random.choice(chars) for _ in range(size))
+
+NUMFILES = 5
+testfilelist = tuple((testdir + gen_filename() , random.randint(0, 2)) for _ in range(NUMFILES))
+fdescriptors = list()
+for testfile, tolock in testfilelist:
+    subprocess.call(['touch', testfile])
+    if tolock:
+        if tolock == 1:
+            f = open(testfile, 'r')
+            fcntl.flock(f.fileno(), fcntl.LOCK_SH) #Source: http://effbot.org/librarybook/fcntl.htm
+        elif tolock == 2:
+            f = open(testfile, 'r+')
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)
+        fdescriptors.append(f)
+
+testscript = os.path.dirname(os.path.realpath(__file__)) + '/lslock' #name of script to test
+testoutput = subprocess.check_output(['python3', testscript, testdir]).decode('utf-8').splitlines() #run the script and get the output
+from pprint import pprint
+pprint(testfilelist)
+print(os.getpid())
+pprint(testoutput)
+
+for f in fdescriptors:
+    f.close()
+
+'''test cases:
+0. File as parameter rather than directory //do not implement here
+1. Normal file: should not be accepted, hence is not accepted.
+2. Hard link: same inode, no point
+3. Soft link: target inode gets locked if you lock either link or target
+4. Rubbish input: caught by directory check
+5. Malicious input: caught by directory check (Python sanitizes)
+'''
