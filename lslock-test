@@ -2,41 +2,46 @@
 
 import fcntl, os
 import subprocess
-#import time
 import string, random
 
-#DEVNULL = open('/dev/null', 'w')
-
+NUMFILES = 5 #The number of test files to create.
 testdir = '/tmp/lslock-test/'
 
 if not os.path.isdir(testdir):
-    os.makedirs(testdir)
+    os.makedirs(testdir) #If test directory does not exist, create it.
 
 def gen_filename(size = 6, chars = string.ascii_uppercase + string.digits):
-#got this function from http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
     return ''.join(random.choice(chars) for _ in range(size))
+#got this function from http://stackoverflow.com/questions/2257441/random-string-generation-with-upper-case-letters-and-digits-in-python
+# It returns a 6-character random filename composed of digits and the uppercase alphabet.
 
-NUMFILES = 5
 testfilelist = list()
 fdescriptors = list()
-pid = str(os.getpid())
+pid = str(os.getpid()) #process PID
 for _ in range(NUMFILES):
     testfile = testdir + gen_filename()
     tolock = random.randint(0, 2)
     subprocess.call(['touch', testfile])
     if tolock:
         testfilelist.append(pid + ' : ' + testfile)
+        #generating the expected output
         if tolock == 1:
             f = open(testfile, 'r')
-            fcntl.flock(f.fileno(), fcntl.LOCK_SH) #Source: http://effbot.org/librarybook/fcntl.htm
+            fcntl.flock(f.fileno(), fcntl.LOCK_SH)
+            #Source: http://effbot.org/librarybook/fcntl.htm
         elif tolock == 2:
             f = open(testfile, 'r+')
             fcntl.flock(f.fileno(), fcntl.LOCK_EX)
         fdescriptors.append(f)
 
-testscript = os.path.dirname(os.path.realpath(__file__)) + '/lslock' #name of script to test
-testoutput = subprocess.check_output(['python3', testscript, testdir]).decode('utf-8').splitlines() #run the script and get the output
-testoutputset = {i for i in testoutput} #Cost of checking whether an element of testfilelist is in testoutputset is O(1), hence total cost is O(n) where testfilelist has n elements.
+testscript = os.path.dirname(os.path.realpath(__file__)) \
++ '/lslock' #name of script to test
+testoutput = subprocess.check_output( \
+    ['python3', testscript, testdir] \
+    ).decode('utf-8').splitlines() #run the script and get the output
+testoutputset = {i for i in testoutput}
+#Cost of checking whether an element of testfilelist is in set testoutputset
+#is O(1), hence total cost is O(n) where n = len(testfilelist).
 diditfail = False
 for line in testfilelist:
     if line not in testoutputset:
@@ -46,19 +51,13 @@ for line in testfilelist:
 if not diditfail:
     print('Passed')
 
-#from pprint import pprint
-#pprint(testfileset)
-#pprint(testoutput)
-
-
 for f in fdescriptors:
-    f.close()
+    f.close() #clean up
 
 '''test cases:
-0. File as parameter rather than directory //do not implement here
-1. Normal file: should not be accepted, hence is not accepted.
-2. Hard link: same inode, no point
-3. Soft link: target inode gets locked if you lock either link or target
-4. Rubbish input: caught by directory check
-5. Malicious input: caught by directory check (Python sanitizes)
+0. File as parameter rather than directory //caught by directory check
+1. Hard link: same inode, no point
+2. Soft link: target inode gets locked if you lock either link or target
+3. Rubbish input: caught by directory check
+4. Malicious input: caught by directory check (Python sanitizes)
 '''

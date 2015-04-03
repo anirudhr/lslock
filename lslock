@@ -2,7 +2,7 @@
 
 from sys import argv
 from subprocess import call, check_output, CalledProcessError
-import re
+from re import sub
 
 DEVNULL = open('/dev/null', 'w')
 
@@ -10,8 +10,10 @@ if len(argv) > 2: #too many arguments passed in
     print('Usage: ' + argv[0] + ' DIR')
     exit()
 elif len(argv) == 2: #exactly one argument passed in (argv[0] is the file name)
-    inputdir = re.sub('//', '/', argv[1] + '/') #adding the '/' is necessary for future appends, but cleaning up '//' is not really necessary except for neatness of output
-else: #no args passed in, use present working directory
+    inputdir = sub('//', '/', argv[1] + '/')
+    #adding the '/' is necessary for future appends, but cleaning up
+    #'//' is not really necessary except for neatness of output
+else: #no args passed in, use present working directory as default input
     from os import path
     inputdir = path.dirname(path.realpath(__file__)) + '/'
 
@@ -21,28 +23,28 @@ try:
 
 except CalledProcessError:
     print('Directory ' + inputdir + ' does not exist. Input needs to be a valid directory.')
-    exit()
+    exit(1)
 
 except PermissionError:
     print('Unable to check directory validity: permission denied.')
-    exit()
+    exit(1)
 
 inodelist = dict()
 procentrylist = dict()
 
 for inputfile in filelist:
     inputfile = inputdir + inputfile
-    #inputfile = re.sub('//', '/', inputdir + inputfile)
     try:
-        inodelist[inputfile] = check_output(['ls', '-i', inputfile], stderr=DEVNULL).split()[0].decode('utf-8') #get inode number for each input file.
+        inodelist[inputfile] = check_output(['ls', '-i', inputfile],
+                stderr=DEVNULL).split()[0].decode('utf-8') #get inode number for each input file.
         procentry = check_output(['grep', inodelist[inputfile], '/proc/locks'], stderr=DEVNULL).decode('utf-8').split()[4] #get PID of locking process from /proc/locks
         procentrylist[inputfile] = procentry
     except:
         continue
+        #Ignoring exceptions such as PermissionError since we want only
+        # positive results. If printing errors encountered during lock tests is required, we do it here.
 
 DEVNULL.close()
 
-#print(inodelist)
-#print(procentrylist)
 for path, pid in procentrylist.items():
     print('%s : %s' % (pid, path))
