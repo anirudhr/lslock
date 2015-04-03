@@ -1,8 +1,10 @@
 #!/usr/bin/python3
 
 import fcntl, os
+from multiprocessing import Process, Pipe, Event
 import subprocess
 import string, random
+import time
 
 NUMFILES = 5 #The number of test files to create.
 testdir = '/tmp/lslock-test/'
@@ -16,7 +18,7 @@ def gen_filename(size = 6, chars = string.ascii_uppercase + string.digits):
     #Returns a 6-character random filename composed of
     #digits and the uppercase alphabet.
 
-def lockfile(testfile, locktype):
+def lockfile(testfile, locktype, waitevent):
     if locktype == 1:
         f = open(testfile, 'r')
         fcntl.flock(f.fileno(), fcntl.LOCK_SH)
@@ -24,40 +26,51 @@ def lockfile(testfile, locktype):
     elif locktype == 2:
         f = open(testfile, 'r+')
         fcntl.flock(f.fileno(), fcntl.LOCK_EX)
-    return f, str(os.getpid())
+    waitevent.wait()
+        #make the child process wait for test script
+        #to execute and find the locks before exiting
+        #so that locks are kept alive to be found
+    f.close()
 
-testfilelist = list()
-fdescriptors = list()
-pid = str(os.getpid()) #process PID
-for _ in range(NUMFILES):
-    testfile = testdir + gen_filename()
-    tolock = random.randint(0, 2)
-    subprocess.call(['touch', testfile])
-    if tolock:
-        f, pid = lockfile(testfile, tolock)
-        fdescriptors.append(f)
-        testfilelist.append(pid + ' : ' + testfile)
-            #generating the expected output
+if __name__ == '__main__':
+    masterwaitevent = Event()
+    testfilelist = list()
+    procs = list()
+    num_locks = 0
+    for _ in range(NUMFILES):
+        testfile = testdir + gen_filename()
+        tolock = random.randint(0, 2)
+        subprocess.call(['touch', testfile])
+        if tolock:
+            p = Process(target=lockfile, \
+                args=(testfile, tolock, masterwaitevent))
+            procs.append(p)
+            p.start()
+            testfilelist.append(str(p.pid) + ' : ' + testfile)
+                #generating the expected output
 
-testscript = os.path.dirname(os.path.realpath(__file__)) \
-+ '/lslock' #name of script to test
-testoutput = subprocess.check_output( \
-    ['python3', testscript, testdir] \
-    ).decode('utf-8').splitlines() #run the script and get the output
-testoutputset = {i for i in testoutput}
-    #Cost of checking whether an element of testfilelist is in set testoutputset
-    #is O(1), hence total cost is O(n) where n = len(testfilelist).
-diditfail = False
-for line in testfilelist:
-    if line not in testoutputset:
-        print('Failed: %s is not in the test output' % line)
-        diditfail = True
-
-if not diditfail:
-    print('Passed')
-
-for f in fdescriptors:
-    f.close() #clean up
+    testscript = os.path.dirname( \
+        os.path.realpath(__file__)) + '/lslock' #name of script to test
+    testoutput = subprocess.check_output( \
+        ['python3', testscript, testdir] \
+        ).decode('utf-8').splitlines() #run the script and get the output
+    testoutputset = {i for i in testoutput}
+        #Cost of checking whether an element of testfilelist
+        #is in set testoutputset is O(1),
+        #hence total cost is O(n) where n = len(testfilelist).
+    diditfail = False
+    for line in testfilelist:
+        if line not in testoutputset:
+            print('Failed: %s is not in the test output' % line)
+            diditfail = True
+    if not diditfail:
+        print('Passed')
+        
+    masterwaitevent.set()
+        #Now that the tests are done, we can let
+        #the child processes close the files and exit 
+    for p in procs:
+        p.join()
 
 '''test cases:
 0. File as parameter rather than directory //caught by directory check
