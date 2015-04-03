@@ -6,6 +6,7 @@ import subprocess
 import string, random
 import time
 from sys import exc_info
+
 DEVNULL = open('/dev/null', 'w')
 NUMFILES = 5 #The number of test files to create.
 testdir = '/tmp/lslock-test/'
@@ -45,17 +46,18 @@ if __name__ == '__main__':
     masterwaitevent = Event()
     testfilelist = list()
     procs = list()
-    num_locks = 0
     for _ in range(NUMFILES):
         testfile = testdir + gen_filename()
         tolock = random.randint(0, 2)
+            #Randomly pick if file is to be left unlocked,
+            #locked with a shared lock, or locked with an exclusive lock
         if subprocess.call(['touch', testfile], stderr=DEVNULL):
             print('Unable to touch test file %s.' % testfile)
             exit(1)
         if tolock:
             p = Process(target=lockfile, \
                 args=(testfile, tolock, masterwaitevent))
-            procs.append(p)
+            procs.append(p) #keep track of Process objects
             p.start()
             testfilelist.append(str(p.pid) + ' : ' + testfile)
                 #generating the expected output
@@ -84,10 +86,3 @@ if __name__ == '__main__':
         p.join()
 
 DEVNULL.close()
-'''test cases:
-0. File as parameter rather than directory //caught by directory check
-1. Hard link: same inode, no point
-2. Soft link: target inode gets locked if you lock either link or target
-3. Rubbish input: caught by directory check
-4. Malicious input: caught by directory check (Python sanitizes)
-'''

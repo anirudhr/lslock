@@ -8,25 +8,28 @@ DEVNULL = open('/dev/null', 'w')
 
 if len(argv) > 2: #too many arguments passed in
     print('Usage: ' + argv[0] + ' DIR')
-    exit()
+    exit(1)
 elif len(argv) == 2: #exactly one argument passed in (argv[0] is the file name)
     inputdir = sub('//', '/', argv[1] + '/')
-    #adding the '/' is necessary for future appends, but cleaning up
-    #'//' is not really necessary except for neatness of output
+        #adding the '/' is necessary for future appends, but cleaning up
+        #'//' is not really necessary except for neatness of output
 else: #no args passed in, use present working directory as default input
     from os import path
     inputdir = path.dirname(path.realpath(__file__)) + '/'
 
 try:
-    filestring = check_output(['ls', inputdir], stderr=DEVNULL).decode('utf-8') #getting a list of the files in the directory
-    filelist = filestring.splitlines()
+    filelist = check_output(['ls', inputdir], \
+        stderr=DEVNULL).decode('utf-8').splitlines()
+        #getting a list of the files in the directory
 
 except CalledProcessError:
-    print('Directory ' + inputdir + ' does not exist. Input needs to be a valid directory.')
+    print('Directory %s does not exist. Input needs to be a valid directory.' \
+        % inputdir)
     exit(1)
 
 except PermissionError:
-    print('Unable to check directory validity: permission denied.')
+    print('Unable to check directory validity for %s: permission denied.' \
+        % inputdir)
     exit(1)
 
 inodelist = dict()
@@ -35,16 +38,16 @@ procentrylist = dict()
 for inputfile in filelist:
     inputfile = inputdir + inputfile
     try:
-        inodelist[inputfile] = check_output(['ls', '-i', inputfile],
+        inodelist[inputfile] = check_output(['ls', '-i', inputfile], \
                 stderr=DEVNULL).split()[0].decode('utf-8') #get inode number for each input file.
         procentry = check_output(['grep', inodelist[inputfile], '/proc/locks'], stderr=DEVNULL).decode('utf-8').split()[4] #get PID of locking process from /proc/locks
         procentrylist[inputfile] = procentry
     except:
         continue
         #Ignoring exceptions such as PermissionError since we want only
-        # positive results. If printing errors encountered during lock tests is required, we do it here.
+        # positive results. If printing of errors encountered during lock tests is required, we do it here.
 
 DEVNULL.close()
 
 for path, pid in procentrylist.items():
-    print('%s : %s' % (pid, path))
+    print('%s : %s' % (pid, path)) #final output
